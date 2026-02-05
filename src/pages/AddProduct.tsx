@@ -1,22 +1,27 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Camera, Upload, X } from 'lucide-react';
+import { ArrowLeft, Camera, Upload, X, Copy, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { THICKNESS_OPTIONS, MATERIAL_OPTIONS, CROTCH_TYPE_OPTIONS, Product, CrotchType, Material } from '@/types';
+import { THICKNESS_OPTIONS, MATERIAL_OPTIONS, CROTCH_TYPE_OPTIONS, Product } from '@/types';
 import { useProductStore } from '@/store/useProductStore';
+import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
+import { Clipboard } from '@capacitor/clipboard';
 
 // Schema Definition
 const productSchema = z.object({
   brand: z.string().min(1, '品牌不能为空'),
   item_no: z.string().optional(),
-  crotch_type: z.string().min(1, '请选择裆型'),
+  crotch_type_select: z.string().min(1, '请选择裆型'),
+  crotch_type_custom: z.string().optional(),
   thickness_select: z.string().min(1, '请选择厚度'),
   thickness_custom: z.string().optional(),
-  material: z.string().min(1, '请选择材质'),
-  link: z.string().url('链接格式不正确').optional().or(z.literal('')),
+  material_select: z.string().min(1, '请选择材质'),
+  material_custom: z.string().optional(),
+  link: z.string().optional(),
   comment: z.string().optional(),
 });
 
@@ -28,10 +33,10 @@ export default function AddProduct() {
   const { addProduct, updateProduct, products } = useProductStore();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const isNative = Capacitor.isNativePlatform();
 
-  const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<ProductFormValues>({
+  const { register, handleSubmit, watch, reset, setValue, getValues, formState: { errors } } = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
     defaultValues: {
       thickness_select: '10D', // Default
@@ -43,14 +48,18 @@ export default function AddProduct() {
         const productToEdit = products.find(p => p.id === id);
         if (productToEdit) {
             const isCustomThickness = !THICKNESS_OPTIONS.includes(productToEdit.thickness || '');
+            const isCustomMaterial = !MATERIAL_OPTIONS.some(opt => opt.value === productToEdit.material);
+            const isCustomCrotch = !CROTCH_TYPE_OPTIONS.some(opt => opt.value === productToEdit.crotch_type);
             
             reset({
                 brand: productToEdit.brand || '',
                 item_no: productToEdit.item_no || '',
-                crotch_type: productToEdit.crotch_type || '',
+                crotch_type_select: isCustomCrotch ? 'Other' : productToEdit.crotch_type || '',
+                crotch_type_custom: isCustomCrotch ? productToEdit.crotch_type : '',
                 thickness_select: isCustomThickness ? 'Other' : productToEdit.thickness || '10D',
                 thickness_custom: isCustomThickness ? productToEdit.thickness || '' : '',
-                material: productToEdit.material || '',
+                material_select: isCustomMaterial ? 'Other' : productToEdit.material || '',
+                material_custom: isCustomMaterial ? productToEdit.material : '',
                 link: productToEdit.link || '',
                 comment: productToEdit.comment || ''
             });
@@ -60,52 +69,53 @@ export default function AddProduct() {
   }, [id, products, reset]);
 
   const selectedThickness = watch('thickness_select');
+  const selectedMaterial = watch('material_select');
+  const selectedCrotch = watch('crotch_type_select');
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setImagePreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-    }
-  };
-
-  const startCamera = async () => {
+  const takePhoto = async () => {
     try {
-        setShowCamera(true);
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment' }
+      const image = await CapacitorCamera.getPhoto({
+        quality: 70,
+        allowEditing: false,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Camera
+      });
+      if (image.base64String) {
+          setImagePreview(`data:image/jpeg;base64,${image.base64String}`);
+      }
+    } catch (error) {
+        console.error('Camera error:', error);
+    }
+  };
+
+  const pickImage = async () => {
+    try {
+      const image = await CapacitorCamera.getPhoto({
+        quality: 70,
+        allowEditing: false,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Photos
+      });
+      if (image.base64String) {
+          setImagePreview(`data:image/jpeg;base64,${image.base64String}`);
+      }
+    } catch (error) {
+        console.error('Gallery error:', error);
+    }
+  };
+
+  const copyLink = async () => {
+    const linkText = getValues('link');
+    if (!linkText) return;
+
+    try {
+        await Clipboard.write({
+            string: linkText
         });
-        if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-        }
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-        console.error("Error accessing camera:", err);
-        alert("无法访问相机，请确保已授予权限。");
-        setShowCamera(false);
-    }
-  };
-
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
-    }
-    setShowCamera(false);
-  };
-
-  const capturePhoto = () => {
-    if (videoRef.current) {
-        const canvas = document.createElement('canvas');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
-        canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0);
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        setImagePreview(dataUrl);
-        stopCamera();
+        console.error('Failed to copy', err);
     }
   };
 
@@ -122,9 +132,9 @@ export default function AddProduct() {
         created_at: id ? (products.find(p => p.id === id)?.created_at || new Date().toISOString()) : new Date().toISOString(),
         brand: data.brand,
         item_no: data.item_no || null,
-        crotch_type: data.crotch_type as CrotchType,
+        crotch_type: data.crotch_type_select === 'Other' ? (data.crotch_type_custom || 'Other') : data.crotch_type_select,
         thickness: data.thickness_select === 'Other' ? (data.thickness_custom || 'Other') : data.thickness_select,
-        material: data.material as Material,
+        material: data.material_select === 'Other' ? (data.material_custom || 'Other') : data.material_select,
         cover_url: imagePreview,
         link: data.link || null,
         comment: data.comment || null,
@@ -136,7 +146,6 @@ export default function AddProduct() {
         addProduct(productData);
     }
 
-    // Simulate a small delay for better UX
     setTimeout(() => {
         setIsSubmitting(false);
         navigate(id ? `/product/${id}` : '/');
@@ -150,6 +159,7 @@ export default function AddProduct() {
       exit={{ x: '100%' }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className="min-h-screen bg-gray-50 flex flex-col"
+      style={{ paddingTop: 'max(env(safe-area-inset-top), 35px)' }}
     >
       <header className="p-4 bg-white border-b flex items-center gap-4 sticky top-0 z-20 shadow-sm">
         <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
@@ -181,51 +191,26 @@ export default function AddProduct() {
                   <div className="flex justify-center gap-4">
                      <button 
                         type="button"
-                        onClick={startCamera}
+                        onClick={takePhoto}
                         className="flex flex-col items-center gap-2 p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition"
                      >
                         <Camera className="w-8 h-8 text-blue-500" />
                         <span className="text-xs text-gray-500">拍照</span>
                      </button>
-                     <label className="cursor-pointer flex flex-col items-center gap-2 p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition">
+                     <button 
+                        type="button"
+                        onClick={pickImage}
+                        className="flex flex-col items-center gap-2 p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition"
+                     >
                         <Upload className="w-8 h-8 text-green-500" />
                         <span className="text-xs text-gray-500">相册</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                     </label>
+                     </button>
                   </div>
                   <p className="text-xs text-gray-400">点击上传封面</p>
                 </div>
               )}
             </div>
           </div>
-
-          {/* Camera Modal */}
-          {showCamera && (
-            <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center">
-                <video 
-                    ref={videoRef} 
-                    autoPlay 
-                    playsInline 
-                    className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-10 flex gap-8 items-center">
-                    <button 
-                        type="button"
-                        onClick={stopCamera}
-                        className="p-4 rounded-full bg-gray-800 text-white"
-                    >
-                        <X size={24} />
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={capturePhoto}
-                        className="p-6 rounded-full bg-white border-4 border-gray-300 active:scale-95 transition-transform"
-                    >
-                        <div className="w-full h-full" />
-                    </button>
-                </div>
-            </div>
-          )}
 
           {/* Brand */}
           <div className="space-y-1">
@@ -252,12 +237,12 @@ export default function AddProduct() {
           <div className="space-y-1">
             <label className="text-sm font-medium">裆型</label>
             <div className="flex flex-wrap gap-2">
-                {CROTCH_TYPE_OPTIONS.map(opt => (
+                {[...CROTCH_TYPE_OPTIONS, { label: '其他', value: 'Other' }].map(opt => (
                     <label key={opt.value} className="cursor-pointer">
                         <input 
                             type="radio" 
                             value={opt.value} 
-                            {...register('crotch_type')}
+                            {...register('crotch_type_select')}
                             className="hidden peer"
                         />
                         <span className="px-3 py-2 rounded-lg border bg-white text-sm text-gray-600 peer-checked:bg-black peer-checked:text-white peer-checked:border-black transition-colors block">
@@ -266,7 +251,14 @@ export default function AddProduct() {
                     </label>
                 ))}
             </div>
-            {errors.crotch_type && <p className="text-red-500 text-xs">{errors.crotch_type.message}</p>}
+            {selectedCrotch === 'Other' && (
+                <input 
+                  {...register('crotch_type_custom')}
+                  className="w-full mt-2 p-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="输入自定义裆型"
+                />
+            )}
+            {errors.crotch_type_select && <p className="text-red-500 text-xs">{errors.crotch_type_select.message}</p>}
           </div>
 
           {/* Thickness */}
@@ -302,12 +294,12 @@ export default function AddProduct() {
           <div className="space-y-1">
             <label className="text-sm font-medium">材质</label>
             <div className="flex flex-wrap gap-2">
-                {MATERIAL_OPTIONS.map(opt => (
+                {[...MATERIAL_OPTIONS, { label: '其他', value: 'Other' }].map(opt => (
                     <label key={opt.value} className="cursor-pointer">
                         <input 
                             type="radio" 
                             value={opt.value} 
-                            {...register('material')}
+                            {...register('material_select')}
                             className="hidden peer"
                         />
                         <span className="px-3 py-2 rounded-lg border bg-white text-sm text-gray-600 peer-checked:bg-black peer-checked:text-white peer-checked:border-black transition-colors block">
@@ -316,17 +308,34 @@ export default function AddProduct() {
                     </label>
                 ))}
             </div>
-            {errors.material && <p className="text-red-500 text-xs">{errors.material.message}</p>}
+            {selectedMaterial === 'Other' && (
+                <input 
+                  {...register('material_custom')}
+                  className="w-full mt-2 p-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="输入自定义材质"
+                />
+            )}
+            {errors.material_select && <p className="text-red-500 text-xs">{errors.material_select.message}</p>}
           </div>
 
           {/* Link */}
           <div className="space-y-1">
             <label className="text-sm font-medium">商品链接</label>
-            <input 
-              {...register('link')}
-              className="w-full p-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black"
-              placeholder="https://..."
-            />
+            <div className="flex gap-2">
+                <input 
+                  {...register('link')}
+                  className="flex-1 p-3 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="输入链接或文字..."
+                />
+                <button 
+                  type="button" 
+                  onClick={copyLink}
+                  className="p-3 bg-gray-100 rounded-lg hover:bg-gray-200 active:bg-gray-300 transition-colors"
+                  title="复制内容"
+                >
+                    {isCopied ? <Check size={20} className="text-green-600" /> : <Copy size={20} />}
+                </button>
+            </div>
             {errors.link && <p className="text-red-500 text-xs">{errors.link.message}</p>}
           </div>
 
@@ -345,7 +354,7 @@ export default function AddProduct() {
       </main>
       
       {/* Fixed Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-20">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-20 pb-[env(safe-area-inset-bottom)]">
          <button 
             onClick={handleSubmit(onSubmit)}
             disabled={isSubmitting}

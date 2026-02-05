@@ -39,11 +39,17 @@ export default function Home() {
       exit={{ opacity: 0 }}
       className="min-h-screen bg-gray-50 pb-24 relative"
     >
-      <header className="p-4 bg-white shadow-sm sticky top-0 z-10">
+      <header 
+        className="fixed top-0 left-0 right-0 bg-white shadow-sm z-10"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 35px)', paddingBottom: '1rem' }}
+      >
         <h1 className="text-xl font-bold text-center">袜哈哈</h1>
       </header>
 
-      <main className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <main 
+        className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4"
+        style={{ marginTop: 'calc(max(env(safe-area-inset-top), 35px) + 60px)' }}
+      >
         {filteredProducts.map(product => (
           <Link key={product.id} to={`/product/${product.id}`} className="block">
             <div className="bg-white rounded-lg shadow-sm overflow-hidden aspect-[3/4] relative">
