@@ -354,7 +354,7 @@ export default function AddProduct() {
       </main>
       
       {/* Fixed Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-20 pb-[env(safe-area-inset-bottom)]">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-20 pb-[calc(env(safe-area-inset-bottom)+20px)]">
          <button 
             onClick={handleSubmit(onSubmit)}
             disabled={isSubmitting}

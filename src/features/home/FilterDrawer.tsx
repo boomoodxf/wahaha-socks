@@ -28,17 +28,34 @@ export function FilterDrawer({ onApply }: FilterDrawerProps) {
     });
   };
 
+  const handleReset = () => {
+    setFilters({
+      thickness: [],
+      material: [],
+      crotch_type: [],
+    });
+  };
+
   const handleApply = () => {
     onApply(filters);
   };
 
   return (
     <Drawer.Root shouldScaleBackground>
+      {/* 
+        The Trigger now wraps the entire bottom bar area in Home.tsx implicitly via absolute positioning,
+        but to make it truly "swipe up" from anywhere on the white bar, we need a visible trigger or custom logic.
+        Here we make the trigger a full-width transparent overlay on the bottom bar, BUT we want the + button to still be clickable.
+        So we will use a specific layout.
+      */}
       <Drawer.Trigger asChild>
-        <button className="bg-white text-black p-4 rounded-full shadow-lg hover:bg-gray-50 transition-transform active:scale-95 border border-gray-100">
-            <SlidersHorizontal size={24} />
-        </button>
+         <div className="w-full h-full flex items-center justify-end px-6 cursor-pointer active:bg-gray-50 transition-colors">
+            <div className="text-gray-400 flex items-center gap-1">
+                <SlidersHorizontal size={20} />
+            </div>
+         </div>
       </Drawer.Trigger>
+      
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 bg-black/40" />
         <Drawer.Content className="bg-white flex flex-col rounded-t-[10px] h-[85vh] mt-24 fixed bottom-0 left-0 right-0 z-50">
@@ -117,11 +134,17 @@ export function FilterDrawer({ onApply }: FilterDrawerProps) {
             </div>
           </div>
           
-          <div className="p-4 bg-gray-50 border-t mt-auto">
+          <div className="p-4 bg-gray-50 border-t mt-auto flex gap-3">
+             <button 
+                onClick={handleReset}
+                className="flex-1 bg-white border border-gray-300 text-black py-3 rounded-lg font-semibold active:scale-95 transition-transform"
+             >
+                重置
+             </button>
              <Drawer.Close asChild>
                 <button 
                   onClick={handleApply}
-                  className="w-full bg-black text-white py-3 rounded-lg font-semibold active:scale-95 transition-transform"
+                  className="flex-[2] bg-black text-white py-3 rounded-lg font-semibold active:scale-95 transition-transform"
                 >
                   应用筛选
                 </button>
