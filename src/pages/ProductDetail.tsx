@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Pencil, Trash2, Copy, Check, X, Link as LinkIcon } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Pencil, Trash2, Copy, Check, X, Link as LinkIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MATERIAL_OPTIONS, CROTCH_TYPE_OPTIONS } from '@/types';
 import { useEffect, useState } from 'react';
@@ -15,6 +15,7 @@ export default function ProductDetail() {
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [isCopiedItem, setIsCopiedItem] = useState(false);
   const [isCopiedLink, setIsCopiedLink] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     if (id) {
@@ -57,6 +58,17 @@ export default function ProductDetail() {
     }
   };
 
+  const images = [product.cover_url, product.cover_url_2].filter(Boolean) as string[];
+  const hasMultipleImages = images.length > 1;
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
   return (
     <motion.div 
       initial={{ x: '100%' }} 
@@ -92,13 +104,46 @@ export default function ProductDetail() {
         </div>
       </header>
 
-      {/* Hero Image */}
-      <div className="w-full h-[60vh] bg-gray-100">
-        <img 
-            src={product.cover_url} 
-            alt={product.brand || 'Product'} 
+      {/* Hero Image with Carousel */}
+      <div className="w-full h-[60vh] bg-gray-100 relative">
+        <img
+            src={images[currentImageIndex]}
+            alt={product.brand || 'Product'}
             className="w-full h-full object-cover"
         />
+
+        {/* Image Navigation */}
+        {hasMultipleImages && (
+          <>
+            <button
+              onClick={prevImage}
+              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-md p-2 rounded-full shadow-lg hover:bg-white transition z-10"
+            >
+              <ChevronLeft size={24} />
+            </button>
+            <button
+              onClick={nextImage}
+              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-md p-2 rounded-full shadow-lg hover:bg-white transition z-10"
+            >
+              <ChevronRight size={24} />
+            </button>
+
+            {/* Image Indicators */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+              {images.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentImageIndex(index)}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    index === currentImageIndex
+                      ? 'bg-white w-6'
+                      : 'bg-white/50'
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="p-6 -mt-6 bg-white rounded-t-3xl relative z-0 space-y-6 min-h-[40vh]">

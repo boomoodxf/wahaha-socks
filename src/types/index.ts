@@ -7,6 +7,7 @@ export interface Product {
   thickness: string;
   material: string;
   cover_url: string;
+  cover_url_2?: string | null;
   link: string | null;
   comment: string | null;
 }

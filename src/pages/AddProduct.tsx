@@ -32,6 +32,7 @@ export default function AddProduct() {
   const { id } = useParams();
   const { addProduct, updateProduct, products } = useProductStore();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreview2, setImagePreview2] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const isNative = Capacitor.isNativePlatform();
@@ -50,7 +51,7 @@ export default function AddProduct() {
             const isCustomThickness = !THICKNESS_OPTIONS.includes(productToEdit.thickness || '');
             const isCustomMaterial = !MATERIAL_OPTIONS.some(opt => opt.value === productToEdit.material);
             const isCustomCrotch = !CROTCH_TYPE_OPTIONS.some(opt => opt.value === productToEdit.crotch_type);
-            
+
             reset({
                 brand: productToEdit.brand || '',
                 item_no: productToEdit.item_no || '',
@@ -64,6 +65,7 @@ export default function AddProduct() {
                 comment: productToEdit.comment || ''
             });
             setImagePreview(productToEdit.cover_url);
+            setImagePreview2(productToEdit.cover_url_2 || null);
         }
     }
   }, [id, products, reset]);
@@ -72,7 +74,7 @@ export default function AddProduct() {
   const selectedMaterial = watch('material_select');
   const selectedCrotch = watch('crotch_type_select');
 
-  const takePhoto = async () => {
+  const takePhoto = async (imageNumber: 1 | 2) => {
     try {
       const image = await CapacitorCamera.getPhoto({
         quality: 70,
@@ -81,14 +83,19 @@ export default function AddProduct() {
         source: CameraSource.Camera
       });
       if (image.base64String) {
-          setImagePreview(`data:image/jpeg;base64,${image.base64String}`);
+          const base64Image = `data:image/jpeg;base64,${image.base64String}`;
+          if (imageNumber === 1) {
+              setImagePreview(base64Image);
+          } else {
+              setImagePreview2(base64Image);
+          }
       }
     } catch (error) {
         console.error('Camera error:', error);
     }
   };
 
-  const pickImage = async () => {
+  const pickImage = async (imageNumber: 1 | 2) => {
     try {
       const image = await CapacitorCamera.getPhoto({
         quality: 70,
@@ -97,7 +104,12 @@ export default function AddProduct() {
         source: CameraSource.Photos
       });
       if (image.base64String) {
-          setImagePreview(`data:image/jpeg;base64,${image.base64String}`);
+          const base64Image = `data:image/jpeg;base64,${image.base64String}`;
+          if (imageNumber === 1) {
+              setImagePreview(base64Image);
+          } else {
+              setImagePreview2(base64Image);
+          }
       }
     } catch (error) {
         console.error('Gallery error:', error);
@@ -124,9 +136,9 @@ export default function AddProduct() {
       alert('请上传封面图片');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     const productData: Product = {
         id: id || crypto.randomUUID(),
         created_at: id ? (products.find(p => p.id === id)?.created_at || new Date().toISOString()) : new Date().toISOString(),
@@ -136,6 +148,7 @@ export default function AddProduct() {
         thickness: data.thickness_select === 'Other' ? (data.thickness_custom || 'Other') : data.thickness_select,
         material: data.material_select === 'Other' ? (data.material_custom || 'Other') : data.material_select,
         cover_url: imagePreview,
+        cover_url_2: imagePreview2 || null,
         link: data.link || null,
         comment: data.comment || null,
     };
@@ -173,12 +186,12 @@ export default function AddProduct() {
           
           {/* Image Upload Section */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">包装封面</label>
+            <label className="block text-sm font-medium text-gray-700">包装封面（图片1）</label>
             <div className="relative aspect-[3/4] bg-gray-200 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex flex-col items-center justify-center group">
               {imagePreview ? (
                 <>
                   <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setImagePreview(null)}
                     className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
@@ -189,17 +202,17 @@ export default function AddProduct() {
               ) : (
                 <div className="text-center space-y-4">
                   <div className="flex justify-center gap-4">
-                     <button 
+                     <button
                         type="button"
-                        onClick={takePhoto}
+                        onClick={() => takePhoto(1)}
                         className="flex flex-col items-center gap-2 p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition"
                      >
                         <Camera className="w-8 h-8 text-blue-500" />
                         <span className="text-xs text-gray-500">拍照</span>
                      </button>
-                     <button 
+                     <button
                         type="button"
-                        onClick={pickImage}
+                        onClick={() => pickImage(1)}
                         className="flex flex-col items-center gap-2 p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition"
                      >
                         <Upload className="w-8 h-8 text-green-500" />
@@ -207,6 +220,47 @@ export default function AddProduct() {
                      </button>
                   </div>
                   <p className="text-xs text-gray-400">点击上传封面</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Image 2 Upload Section */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">包装封面（图片2 - 可选）</label>
+            <div className="relative aspect-[3/4] bg-gray-200 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex flex-col items-center justify-center group">
+              {imagePreview2 ? (
+                <>
+                  <img src={imagePreview2} alt="Preview 2" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setImagePreview2(null)}
+                    className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+                  >
+                    <X size={16} />
+                  </button>
+                </>
+              ) : (
+                <div className="text-center space-y-4">
+                  <div className="flex justify-center gap-4">
+                     <button
+                        type="button"
+                        onClick={() => takePhoto(2)}
+                        className="flex flex-col items-center gap-2 p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition"
+                     >
+                        <Camera className="w-8 h-8 text-blue-500" />
+                        <span className="text-xs text-gray-500">拍照</span>
+                     </button>
+                     <button
+                        type="button"
+                        onClick={() => pickImage(2)}
+                        className="flex flex-col items-center gap-2 p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition"
+                     >
+                        <Upload className="w-8 h-8 text-green-500" />
+                        <span className="text-xs text-gray-500">相册</span>
+                     </button>
+                  </div>
+                  <p className="text-xs text-gray-400">点击上传第二张图片</p>
                 </div>
               )}
             </div>

@@ -20,6 +20,7 @@ const INITIAL_MOCK_PRODUCTS: Product[] = [
     thickness: '15D',
     material: 'core_spun',
     cover_url: 'https://placehold.co/400x600/e2e8f0/1e293b?text=商品1',
+    cover_url_2: null,
     link: '',
     comment: '穿着非常舒适，耐穿。'
   },
@@ -32,6 +33,7 @@ const INITIAL_MOCK_PRODUCTS: Product[] = [
     thickness: '5D',
     material: 'velvet',
     cover_url: 'https://placehold.co/400x600/e2e8f0/1e293b?text=商品2',
+    cover_url_2: null,
     link: '',
     comment: ''
   },
@@ -44,6 +46,7 @@ const INITIAL_MOCK_PRODUCTS: Product[] = [
     thickness: '10D',
     material: 'xuedaili',
     cover_url: 'https://placehold.co/400x600/e2e8f0/1e293b?text=商品3',
+    cover_url_2: null,
     link: '',
     comment: '光泽感很好。'
   }
