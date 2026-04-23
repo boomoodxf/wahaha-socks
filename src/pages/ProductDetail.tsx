@@ -192,10 +192,22 @@ export default function ProductDetail({ direction }: { direction: number }) {
     <motion.div 
       className="min-h-screen bg-white pb-10"
       custom={direction}
-      initial={{ x: direction > 0 ? '100%' : 0 }}
-      animate={{ x: 0 }}
-      exit={{ x: direction > 0 ? 0 : '100%' }}
-      transition={{ type: 'tween', duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+      initial={{ 
+        x: direction > 0 ? '100%' : '-20%',
+        opacity: direction > 0 ? 1 : 1
+      }}
+      animate={{ 
+        x: 0,
+        opacity: 1
+      }}
+      exit={{ 
+        x: direction > 0 ? '-20%' : '100%',
+        opacity: direction > 0 ? 1 : 0
+      }}
+      transition={{ 
+        duration: 0.3,
+        ease: [0.4, 0, 0.2, 1]
+      }}
       style={{ position: 'absolute', width: '100%', minHeight: '100vh' }}
     >
       <header 
