@@ -280,10 +280,10 @@ export default function AddProduct() {
 
       if (routeId) {
         updateProduct(productData);
-        navigate(`/product/${encodeURIComponent(String(routeId))}`);
+        navigate(`/product/${encodeURIComponent(String(routeId))}`, { replace: true });
       } else {
         addProduct(productData);
-        navigate('/');
+        navigate('/', { replace: true });
       }
     } catch (error) {
       console.error('Save product failed:', error);
