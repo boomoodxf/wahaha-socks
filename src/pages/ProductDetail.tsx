@@ -195,7 +195,7 @@ export default function ProductDetail({ direction }: { direction: number }) {
       initial={{ x: direction > 0 ? '100%' : 0 }}
       animate={{ x: 0 }}
       exit={{ x: direction > 0 ? 0 : '100%' }}
-      transition={{ type: 'tween', duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+      transition={{ type: 'tween', duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
       style={{ position: 'absolute', width: '100%', minHeight: '100vh' }}
     >
       <header 

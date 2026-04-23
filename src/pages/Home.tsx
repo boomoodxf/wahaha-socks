@@ -175,7 +175,7 @@ export default function Home({ direction }: { direction: number }) {
       initial={{ x: direction > 0 ? '100%' : 0 }}
       animate={{ x: 0 }}
       exit={{ x: direction > 0 ? 0 : '100%' }}
-      transition={{ type: 'tween', duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+      transition={{ type: 'tween', duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
       style={{ position: 'absolute', width: '100%', height: '100%' }}
     >
       <header 
@@ -233,7 +233,7 @@ export default function Home({ direction }: { direction: number }) {
                     className="bg-white rounded-lg shadow-sm overflow-hidden aspect-[3/4] relative"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                    transition={{ type: 'tween', duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                 >
                 <img 
                     src={product.cover_url} 
