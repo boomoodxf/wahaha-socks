@@ -297,10 +297,10 @@ export default function AddProduct() {
   return (
     <>
       <motion.div
-        initial={{ x: '14%', opacity: 0.75 }}
-        animate={{ x: 0, opacity: 1 }}
-        exit={{ x: '12%', opacity: 0.7 }}
-        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'tween', duration: 0.3, ease: 'easeInOut' }}
         className="min-h-screen bg-gray-50 flex flex-col"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 35px)' }}
       >

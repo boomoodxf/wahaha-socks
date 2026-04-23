@@ -191,10 +191,10 @@ export default function ProductDetail() {
   return (
     <motion.div 
       className="min-h-screen bg-white pb-10"
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      initial={{ x: '100%' }}
+      animate={{ x: 0 }}
+      exit={{ x: '100%' }}
+      transition={{ type: 'tween', duration: 0.3, ease: 'easeInOut' }}
     >
       <header 
         className="absolute top-0 left-0 right-0 p-4 z-10 flex justify-between items-center"
