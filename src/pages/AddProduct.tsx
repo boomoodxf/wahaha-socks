@@ -298,9 +298,9 @@ export default function AddProduct({ direction }: { direction: number }) {
     <>
       <motion.div
         custom={direction}
-        initial={{ x: direction > 0 ? '100%' : '-100%' }}
+        initial={{ x: direction > 0 ? '100%' : 0 }}
         animate={{ x: 0 }}
-        exit={{ x: direction > 0 ? '100%' : '-100%' }}
+        exit={{ x: direction > 0 ? 0 : '100%' }}
         transition={{ type: 'tween', duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
         className="min-h-screen bg-gray-50 flex flex-col"
         style={{ position: 'absolute', width: '100%', minHeight: '100vh', paddingTop: 'max(env(safe-area-inset-top), 35px)' }}
