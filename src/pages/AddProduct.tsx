@@ -28,7 +28,7 @@ const productSchema = z.object({
 
 type ProductFormValues = z.infer<typeof productSchema>;
 
-export default function AddProduct() {
+export default function AddProduct({ direction }: { direction: number }) {
   const navigate = useNavigate();
   const { id } = useParams();
   const safeDecode = (value: string) => {
@@ -297,12 +297,13 @@ export default function AddProduct() {
   return (
     <>
       <motion.div
-        initial={{ x: '100%' }}
+        custom={direction}
+        initial={{ x: direction > 0 ? '100%' : '-100%' }}
         animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        transition={{ type: 'tween', duration: 0.3, ease: 'easeInOut' }}
+        exit={{ x: direction > 0 ? '100%' : '-100%' }}
+        transition={{ type: 'tween', duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
         className="min-h-screen bg-gray-50 flex flex-col"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 35px)' }}
+        style={{ position: 'absolute', width: '100%', minHeight: '100vh', paddingTop: 'max(env(safe-area-inset-top), 35px)' }}
       >
         <header className="p-4 bg-white border-b flex items-center gap-4 sticky top-0 z-20 shadow-sm">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">

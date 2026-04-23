@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useProductStore } from '@/store/useProductStore';
 import { Clipboard } from '@capacitor/clipboard';
 
-export default function ProductDetail() {
+export default function ProductDetail({ direction }: { direction: number }) {
   const navigate = useNavigate();
   const { id } = useParams();
   const { products, deleteProduct } = useProductStore();
@@ -191,10 +191,12 @@ export default function ProductDetail() {
   return (
     <motion.div 
       className="min-h-screen bg-white pb-10"
-      initial={{ x: '100%' }}
+      custom={direction}
+      initial={{ x: direction > 0 ? '100%' : '-100%' }}
       animate={{ x: 0 }}
-      exit={{ x: '100%' }}
-      transition={{ type: 'tween', duration: 0.3, ease: 'easeInOut' }}
+      exit={{ x: direction > 0 ? '100%' : '-100%' }}
+      transition={{ type: 'tween', duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+      style={{ position: 'absolute', width: '100%', minHeight: '100vh' }}
     >
       <header 
         className="absolute top-0 left-0 right-0 p-4 z-10 flex justify-between items-center"
