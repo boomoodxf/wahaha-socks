@@ -9,11 +9,14 @@ interface FilterDrawerProps {
 }
 
 export function FilterDrawer({ onApply }: FilterDrawerProps) {
+  const [open, setOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     thickness: [],
     material: [],
     crotch_type: [],
   });
+  const [touchStartY, setTouchStartY] = useState(0);
+  const [touchEndY, setTouchEndY] = useState(0);
 
   const toggleFilter = (category: keyof FilterState, value: string) => {
     setFilters(prev => {
@@ -40,19 +43,37 @@ export function FilterDrawer({ onApply }: FilterDrawerProps) {
     onApply(filters);
   };
 
+  const handleTriggerTouchStart = (e: React.TouchEvent) => {
+    setTouchStartY(e.targetTouches[0].clientY);
+    setTouchEndY(e.targetTouches[0].clientY);
+  };
+
+  const handleTriggerTouchMove = (e: React.TouchEvent) => {
+    setTouchEndY(e.targetTouches[0].clientY);
+  };
+
+  const handleTriggerTouchEnd = () => {
+    if (!touchStartY || !touchEndY) return;
+    const deltaY = touchStartY - touchEndY;
+    if (deltaY > 35) {
+      setOpen(true);
+    }
+    setTouchStartY(0);
+    setTouchEndY(0);
+  };
+
   return (
-    <Drawer.Root shouldScaleBackground>
-      {/* 
-        The Trigger now wraps the entire bottom bar area in Home.tsx implicitly via absolute positioning,
-        but to make it truly "swipe up" from anywhere on the white bar, we need a visible trigger or custom logic.
-        Here we make the trigger a full-width transparent overlay on the bottom bar, BUT we want the + button to still be clickable.
-        So we will use a specific layout.
-      */}
+    <Drawer.Root shouldScaleBackground open={open} onOpenChange={setOpen}>
       <Drawer.Trigger asChild>
-         <div className="w-full h-full flex items-center justify-end px-6 cursor-pointer active:bg-gray-50 transition-colors">
-            <div className="text-gray-400 flex items-center gap-1">
-                <SlidersHorizontal size={20} />
-            </div>
+         <div
+            className="w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing"
+            onTouchStart={handleTriggerTouchStart}
+            onTouchMove={handleTriggerTouchMove}
+            onTouchEnd={handleTriggerTouchEnd}
+         >
+             <div className="absolute right-6 text-gray-400 flex items-center gap-1 pointer-events-none">
+                 <SlidersHorizontal size={20} />
+             </div>
          </div>
       </Drawer.Trigger>
       

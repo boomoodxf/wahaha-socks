@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Camera, Upload, X, Copy, Check } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,6 +10,7 @@ import { useProductStore } from '@/store/useProductStore';
 import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
 import { Clipboard } from '@capacitor/clipboard';
+import { FilePicker } from '@capawesome/capacitor-file-picker';
 
 // Schema Definition
 const productSchema = z.object({
@@ -30,12 +31,22 @@ type ProductFormValues = z.infer<typeof productSchema>;
 export default function AddProduct() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const safeDecode = (value: string) => {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  };
+
+  const routeId = id ? safeDecode(id) : undefined;
   const { addProduct, updateProduct, products } = useProductStore();
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imagePreview2, setImagePreview2] = useState<string | null>(null);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const isNative = Capacitor.isNativePlatform();
+  const [longPressIndex, setLongPressIndex] = useState<number | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const { register, handleSubmit, watch, reset, setValue, getValues, formState: { errors } } = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -45,8 +56,8 @@ export default function AddProduct() {
   });
 
   useEffect(() => {
-    if (id) {
-        const productToEdit = products.find(p => p.id === id);
+    if (routeId) {
+        const productToEdit = products.find((p) => String(p.id) === String(routeId));
         if (productToEdit) {
             const isCustomThickness = !THICKNESS_OPTIONS.includes(productToEdit.thickness || '');
             const isCustomMaterial = !MATERIAL_OPTIONS.some(opt => opt.value === productToEdit.material);
@@ -64,17 +75,58 @@ export default function AddProduct() {
                 link: productToEdit.link || '',
                 comment: productToEdit.comment || ''
             });
-            setImagePreview(productToEdit.cover_url);
-            setImagePreview2(productToEdit.cover_url_2 || null);
+
+            const images = [productToEdit.cover_url];
+            if (productToEdit.cover_url_2) {
+                images.push(productToEdit.cover_url_2);
+            }
+            setImagePreviews(images);
         }
+    } else {
+        // 清空表单和图片预览，避免从编辑页返回时残留数据
+        setImagePreviews([]);
     }
-  }, [id, products, reset]);
+  }, [routeId, products, reset]);
 
   const selectedThickness = watch('thickness_select');
   const selectedMaterial = watch('material_select');
   const selectedCrotch = watch('crotch_type_select');
 
-  const takePhoto = async (imageNumber: 1 | 2) => {
+  const generateProductId = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  };
+
+  const compressImageDataUrl = (dataUrl: string, maxSide = 1400, quality = 0.72) => {
+    return new Promise<string>((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const { width, height } = img;
+        const ratio = Math.min(1, maxSide / Math.max(width, height));
+        const targetWidth = Math.round(width * ratio);
+        const targetHeight = Math.round(height * ratio);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  };
+
+  const takePhoto = async () => {
     try {
       const image = await CapacitorCamera.getPhoto({
         quality: 70,
@@ -84,37 +136,106 @@ export default function AddProduct() {
       });
       if (image.base64String) {
           const base64Image = `data:image/jpeg;base64,${image.base64String}`;
-          if (imageNumber === 1) {
-              setImagePreview(base64Image);
-          } else {
-              setImagePreview2(base64Image);
-          }
+          setImagePreviews(prev => [...prev, base64Image]);
       }
     } catch (error) {
         console.error('Camera error:', error);
     }
   };
 
-  const pickImage = async (imageNumber: 1 | 2) => {
+  const pickImages = async () => {
     try {
-      const image = await CapacitorCamera.getPhoto({
-        quality: 70,
-        allowEditing: false,
-        resultType: CameraResultType.Base64,
-        source: CameraSource.Photos
-      });
-      if (image.base64String) {
-          const base64Image = `data:image/jpeg;base64,${image.base64String}`;
-          if (imageNumber === 1) {
-              setImagePreview(base64Image);
-          } else {
-              setImagePreview2(base64Image);
-          }
+      if (Capacitor.isNativePlatform()) {
+        const result = await FilePicker.pickImages({
+          readData: true,
+          limit: 0,
+        });
+
+        const newImages = result.files
+          .filter((file) => Boolean(file.data))
+          .map((file) => `data:${file.mimeType || 'image/jpeg'};base64,${file.data}`);
+
+        if (newImages.length > 0) {
+          setImagePreviews((prev) => [...prev, ...newImages]);
+        }
+
+        return;
+      }
+
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+        imageInputRef.current.click();
       }
     } catch (error) {
         console.error('Gallery error:', error);
     }
   };
+
+  const handleImageInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      const images = await Promise.all(
+        Array.from(files).map(
+          (file) =>
+            new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(file);
+            })
+        )
+      );
+
+      setImagePreviews((prev) => [...prev, ...images]);
+    } catch (error) {
+      console.error('Web gallery parse error:', error);
+      alert('读取图片失败，请重试');
+    } finally {
+      e.target.value = '';
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const moveImageToFirst = (index: number) => {
+    if (index === 0) return;
+    setImagePreviews(prev => {
+      const newPreviews = [...prev];
+      const [movedImage] = newPreviews.splice(index, 1);
+      newPreviews.unshift(movedImage);
+      return newPreviews;
+    });
+    setLongPressIndex(null);
+  };
+
+  const handleLongPressStart = (index: number) => {
+    const timer = setTimeout(() => {
+      setLongPressIndex(index);
+    }, 500);
+    setLongPressTimer(timer);
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
+  const handleDragEnd = (result: any) => {
+    if (!result.destination) return;
+    
+    const items = Array.from(imagePreviews);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    
+    setImagePreviews(items);
+  };
+
 
   const copyLink = async () => {
     const linkText = getValues('link');
@@ -132,79 +253,125 @@ export default function AddProduct() {
   };
 
   const onSubmit = async (data: ProductFormValues) => {
-    if (!imagePreview) {
-      alert('请上传封面图片');
+    if (imagePreviews.length === 0) {
+      alert('请上传至少一张封面图片');
       return;
     }
 
     setIsSubmitting(true);
 
-    const productData: Product = {
-        id: id || crypto.randomUUID(),
-        created_at: id ? (products.find(p => p.id === id)?.created_at || new Date().toISOString()) : new Date().toISOString(),
+    try {
+      const coverImage = await compressImageDataUrl(imagePreviews[0]);
+      const secondImage = imagePreviews[1] ? await compressImageDataUrl(imagePreviews[1]) : null;
+
+      const productData: Product = {
+        id: routeId || generateProductId(),
+        created_at: routeId ? (products.find((p) => String(p.id) === String(routeId))?.created_at || new Date().toISOString()) : new Date().toISOString(),
         brand: data.brand,
         item_no: data.item_no || null,
         crotch_type: data.crotch_type_select === 'Other' ? (data.crotch_type_custom || 'Other') : data.crotch_type_select,
         thickness: data.thickness_select === 'Other' ? (data.thickness_custom || 'Other') : data.thickness_select,
         material: data.material_select === 'Other' ? (data.material_custom || 'Other') : data.material_select,
-        cover_url: imagePreview,
-        cover_url_2: imagePreview2 || null,
+        cover_url: coverImage,
+        cover_url_2: secondImage,
         link: data.link || null,
         comment: data.comment || null,
-    };
+      };
 
-    if (id) {
+      if (routeId) {
         updateProduct(productData);
-    } else {
+        navigate(`/product/${encodeURIComponent(String(routeId))}`);
+      } else {
         addProduct(productData);
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Save product failed:', error);
+      alert('保存失败，请减少图片数量或选择更小图片后重试');
+      setIsSubmitting(false);
     }
-
-    setTimeout(() => {
-        setIsSubmitting(false);
-        navigate(id ? `/product/${id}` : '/');
-    }, 500);
   };
 
   return (
-    <motion.div 
-      initial={{ x: '100%' }} 
-      animate={{ x: 0 }} 
-      exit={{ x: '100%' }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="min-h-screen bg-gray-50 flex flex-col"
-      style={{ paddingTop: 'max(env(safe-area-inset-top), 35px)' }}
-    >
-      <header className="p-4 bg-white border-b flex items-center gap-4 sticky top-0 z-20 shadow-sm">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
-          <ArrowLeft />
-        </button>
-        <h1 className="text-lg font-bold">{id ? '编辑商品' : '添加新商品'}</h1>
-      </header>
+    <>
+      <motion.div
+        initial={{ x: '14%', opacity: 0.75 }}
+        animate={{ x: 0, opacity: 1 }}
+        exit={{ x: '12%', opacity: 0.7 }}
+        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+        className="min-h-screen bg-gray-50 flex flex-col"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 35px)' }}
+      >
+        <header className="p-4 bg-white border-b flex items-center gap-4 sticky top-0 z-20 shadow-sm">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
+            <ArrowLeft />
+          </button>
+          <h1 className="text-lg font-bold">{routeId ? '编辑商品' : '添加新商品'}</h1>
+        </header>
 
-      <main className="flex-1 overflow-y-auto p-4 pb-32">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-lg mx-auto">
-          
+        <main className="flex-1 overflow-y-auto p-4 pb-32">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-lg mx-auto">
+
           {/* Image Upload Section */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">包装封面（图片1）</label>
-            <div className="relative aspect-[3/4] bg-gray-200 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex flex-col items-center justify-center group">
-              {imagePreview ? (
-                <>
-                  <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setImagePreview(null)}
-                    className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
+            <label className="block text-sm font-medium text-gray-700">
+              包装封面 {imagePreviews.length > 0 && <span className="text-xs text-gray-500">(第一张为主图，长按或拖动调整顺序)</span>}
+            </label>
+
+            {/* Image Grid */}
+            <Reorder.Group
+              axis="x"
+              values={imagePreviews}
+              onReorder={setImagePreviews}
+              className="grid grid-cols-2 gap-3"
+              as="div"
+            >
+              {imagePreviews.map((image, index) => (
+                <Reorder.Item
+                  key={image}
+                  value={image}
+                  className="relative aspect-[3/4] bg-gray-200 rounded-xl overflow-hidden border-2 border-gray-300"
+                  dragListener={false}
+                  as="div"
+                >
+                  <motion.div
+                    className="w-full h-full"
+                    onTouchStart={() => handleLongPressStart(index)}
+                    onTouchEnd={handleLongPressEnd}
+                    onMouseDown={() => handleLongPressStart(index)}
+                    onMouseUp={handleLongPressEnd}
+                    onMouseLeave={handleLongPressEnd}
+                    drag
+                    dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+                    dragElastic={0.1}
+                    whileTap={{ scale: 0.95 }}
                   >
-                    <X size={16} />
-                  </button>
-                </>
-              ) : (
+                    <img src={image} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
+                    
+                    {index === 0 && (
+                      <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                        主图
+                      </div>
+                    )}
+                    
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70 z-10"
+                    >
+                      <X size={16} />
+                    </button>
+                  </motion.div>
+                </Reorder.Item>
+              ))}
+
+              {/* Add Button */}
+              <div className="relative aspect-[3/4] bg-gray-200 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex flex-col items-center justify-center group">
                 <div className="text-center space-y-4">
                   <div className="flex justify-center gap-4">
                      <button
                         type="button"
-                        onClick={() => takePhoto(1)}
+                        onClick={takePhoto}
                         className="flex flex-col items-center gap-2 p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition"
                      >
                         <Camera className="w-8 h-8 text-blue-500" />
@@ -212,59 +379,69 @@ export default function AddProduct() {
                      </button>
                      <button
                         type="button"
-                        onClick={() => pickImage(1)}
+                        onClick={pickImages}
                         className="flex flex-col items-center gap-2 p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition"
                      >
                         <Upload className="w-8 h-8 text-green-500" />
                         <span className="text-xs text-gray-500">相册</span>
                      </button>
                   </div>
-                  <p className="text-xs text-gray-400">点击上传封面</p>
+                  <p className="text-xs text-gray-400">添加图片</p>
                 </div>
-              )}
-            </div>
+              </div>
+            </Reorder.Group>
           </div>
 
-          {/* Image 2 Upload Section */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">包装封面（图片2 - 可选）</label>
-            <div className="relative aspect-[3/4] bg-gray-200 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex flex-col items-center justify-center group">
-              {imagePreview2 ? (
-                <>
-                  <img src={imagePreview2} alt="Preview 2" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setImagePreview2(null)}
-                    className="absolute top-2 right-2 p-1 bg-black/50 text-white rounded-full hover:bg-black/70"
-                  >
-                    <X size={16} />
-                  </button>
-                </>
-              ) : (
-                <div className="text-center space-y-4">
-                  <div className="flex justify-center gap-4">
-                     <button
-                        type="button"
-                        onClick={() => takePhoto(2)}
-                        className="flex flex-col items-center gap-2 p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition"
-                     >
-                        <Camera className="w-8 h-8 text-blue-500" />
-                        <span className="text-xs text-gray-500">拍照</span>
-                     </button>
-                     <button
-                        type="button"
-                        onClick={() => pickImage(2)}
-                        className="flex flex-col items-center gap-2 p-4 bg-white rounded-lg shadow-sm hover:bg-gray-50 transition"
-                     >
-                        <Upload className="w-8 h-8 text-green-500" />
-                        <span className="text-xs text-gray-500">相册</span>
-                     </button>
+          {/* Long Press Menu */}
+          <AnimatePresence>
+            {longPressIndex !== null && longPressIndex > 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 flex items-center justify-center"
+                onClick={() => setLongPressIndex(null)}
+              >
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+                <motion.div
+                  initial={{ scale: 0.9, y: 20 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.9, y: 20 }}
+                  className="relative bg-white rounded-2xl p-6 m-4 max-w-sm w-full shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h3 className="text-lg font-bold mb-4 text-center">图片操作</h3>
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => moveImageToFirst(longPressIndex)}
+                      className="w-full bg-blue-500 text-white py-3 rounded-xl font-medium hover:bg-blue-600 transition"
+                    >
+                      设为主图
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        removeImage(longPressIndex);
+                        setLongPressIndex(null);
+                      }}
+                      className="w-full bg-red-500 text-white py-3 rounded-xl font-medium hover:bg-red-600 transition"
+                    >
+                      删除图片
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLongPressIndex(null)}
+                      className="w-full bg-gray-200 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-300 transition"
+                    >
+                      取消
+                    </button>
                   </div>
-                  <p className="text-xs text-gray-400">点击上传第二张图片</p>
-                </div>
-              )}
-            </div>
-          </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
 
           {/* Brand */}
           <div className="space-y-1">
@@ -406,18 +583,25 @@ export default function AddProduct() {
 
         </form>
       </main>
-      
-      {/* Fixed Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t z-20 pb-[calc(env(safe-area-inset-bottom)+20px)]">
-         <button 
+        {/* Fixed Bottom Action Bar */}
+        <div className="shrink-0 p-4 bg-white border-t z-20 pb-[calc(env(safe-area-inset-bottom)+20px)]">
+          <button
             onClick={handleSubmit(onSubmit)}
             disabled={isSubmitting}
             className="w-full bg-black text-white py-4 rounded-xl font-bold text-lg shadow-lg active:scale-[0.98] transition-transform disabled:opacity-50"
-         >
+          >
             {isSubmitting ? '保存中...' : '保存商品'}
-         </button>
-      </div>
-
-    </motion.div>
+          </button>
+        </div>
+      </motion.div>
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleImageInputChange}
+      />
+    </>
   );
 }

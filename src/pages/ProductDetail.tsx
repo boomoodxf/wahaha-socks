@@ -1,34 +1,61 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Pencil, Trash2, Copy, Check, X, Link as LinkIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Pencil, Trash2, Copy, Check, X, Link as LinkIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MATERIAL_OPTIONS, CROTCH_TYPE_OPTIONS } from '@/types';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useProductStore } from '@/store/useProductStore';
-import { Product } from '@/types';
 import { Clipboard } from '@capacitor/clipboard';
 
 export default function ProductDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { products, deleteProduct } = useProductStore();
-  const [product, setProduct] = useState<Product | null>(null);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [isCopiedItem, setIsCopiedItem] = useState(false);
   const [isCopiedLink, setIsCopiedLink] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [slideDirection, setSlideDirection] = useState(1);
+  const [touchStartY, setTouchStartY] = useState(0);
+  const [touchEndY, setTouchEndY] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [modalTouchStartY, setModalTouchStartY] = useState(0);
+  const [modalDragY, setModalDragY] = useState(0);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [zoomX, setZoomX] = useState(0);
+  const [zoomY, setZoomY] = useState(0);
+  const pinchStartDistance = useRef<number | null>(null);
+  const pinchStartScale = useRef(1);
+  const previousProductIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (id) {
-      const found = products.find(p => p.id === id);
-      setProduct(found || null);
+  const safeDecode = (value: string) => {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
     }
-  }, [id, products]);
+  };
+
+  const routeId = id ? safeDecode(id) : '';
+  const product = products.find((p) => String(p.id) === String(routeId)) || null;
+
+  if (product && previousProductIdRef.current !== product.id) {
+    previousProductIdRef.current = product.id;
+    if (currentImageIndex !== 0) {
+      setCurrentImageIndex(0);
+    }
+  }
 
   if (!product) {
     return (
-        <div className="min-h-screen flex items-center justify-center bg-white">
-            加载中...
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-white px-4">
+        <p className="text-gray-700">商品不存在或已被删除</p>
+        <button
+          onClick={() => navigate('/')}
+          className="px-4 py-2 rounded-lg bg-black text-white"
+        >
+          返回首页
+        </button>
+      </div>
     );
   }
 
@@ -38,8 +65,8 @@ export default function ProductDetail() {
 
   const handleDelete = () => {
     if (window.confirm('确定要删除这个商品吗？')) {
-        deleteProduct(product.id);
-        navigate('/');
+      deleteProduct(product.id);
+      window.location.hash = '#/';
     }
   };
 
@@ -59,23 +86,115 @@ export default function ProductDetail() {
   };
 
   const images = [product.cover_url, product.cover_url_2].filter(Boolean) as string[];
+  const safeImageIndex = images.length === 0 ? 0 : currentImageIndex % images.length;
   const hasMultipleImages = images.length > 1;
 
   const nextImage = () => {
+    setSlideDirection(1);
     setCurrentImageIndex((prev) => (prev + 1) % images.length);
   };
 
   const prevImage = () => {
+    setSlideDirection(-1);
     setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartY(e.targetTouches[0].clientY);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEndY(e.targetTouches[0].clientY);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStartY || !touchEndY) return;
+
+    const deltaY = touchEndY - touchStartY;
+    const isSwipeDownToExpand = deltaY > 70;
+
+    if (isSwipeDownToExpand) {
+      setShowImageModal(true);
+    }
+
+    setTouchStartY(0);
+    setTouchEndY(0);
+  };
+
+  const handleModalTouchStart = (e: React.TouchEvent) => {
+    if (e.targetTouches.length === 2) {
+      const [touchA, touchB] = [e.targetTouches[0], e.targetTouches[1]];
+      const distance = Math.hypot(
+        touchA.clientX - touchB.clientX,
+        touchA.clientY - touchB.clientY
+      );
+      pinchStartDistance.current = distance;
+      pinchStartScale.current = zoomScale;
+      return;
+    }
+
+    setModalTouchStartY(e.targetTouches[0].clientY);
+    setModalDragY(0);
+  };
+
+  const handleModalTouchMove = (e: React.TouchEvent) => {
+    if (e.targetTouches.length === 2) {
+      const [touchA, touchB] = [e.targetTouches[0], e.targetTouches[1]];
+      const distance = Math.hypot(
+        touchA.clientX - touchB.clientX,
+        touchA.clientY - touchB.clientY
+      );
+
+      if (pinchStartDistance.current) {
+        const nextScale = (distance / pinchStartDistance.current) * pinchStartScale.current;
+        setZoomScale(Math.min(4, Math.max(1, nextScale)));
+      }
+
+      return;
+    }
+
+    if (zoomScale > 1) {
+      return;
+    }
+
+    if (!modalTouchStartY) return;
+    const currentY = e.targetTouches[0].clientY;
+    const diff = currentY - modalTouchStartY;
+    if (diff > 0) {
+      setModalDragY(diff);
+    }
+  };
+
+  const handleModalTouchEnd = () => {
+    if (pinchStartDistance.current) {
+      pinchStartDistance.current = null;
+      pinchStartScale.current = zoomScale;
+    }
+
+    if (modalDragY > 100) {
+      setShowImageModal(false);
+    }
+    setModalDragY(0);
+    setModalTouchStartY(0);
+  };
+
+  useEffect(() => {
+    if (!showImageModal) {
+      setZoomScale(1);
+      setZoomX(0);
+      setZoomY(0);
+      pinchStartDistance.current = null;
+      pinchStartScale.current = 1;
+    }
+  }, [showImageModal]);
+
   return (
     <motion.div 
-      initial={{ x: '100%' }} 
-      animate={{ x: 0 }} 
-      exit={{ x: '100%' }}
-      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className="min-h-screen bg-white pb-10"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
     >
       <header 
         className="absolute top-0 left-0 right-0 p-4 z-10 flex justify-between items-center"
@@ -105,44 +224,72 @@ export default function ProductDetail() {
       </header>
 
       {/* Hero Image with Carousel */}
-      <div className="w-full h-[60vh] bg-gray-100 relative">
-        <img
-            src={images[currentImageIndex]}
-            alt={product.brand || 'Product'}
-            className="w-full h-full object-cover"
-        />
+      <div
+        className="w-full h-[60vh] bg-gray-100 relative overflow-hidden cursor-pointer"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {images.length > 0 ? (
+          <AnimatePresence initial={false} custom={slideDirection}>
+            <motion.img
+              key={images[safeImageIndex]}
+              src={images[safeImageIndex]}
+              alt={product.brand || 'Product'}
+              custom={slideDirection}
+              className="absolute inset-0 w-full h-full object-cover"
+              variants={{
+                enter: (direction: number) => ({
+                  x: direction > 0 ? '100%' : '-100%'
+                }),
+                center: {
+                  x: 0
+                },
+                exit: (direction: number) => ({
+                  x: direction > 0 ? '-100%' : '100%'
+                })
+              }}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                type: 'spring',
+                stiffness: 320,
+                damping: 34
+              }}
+              drag={hasMultipleImages ? 'x' : false}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.18}
+              onDragEnd={(_, info) => {
+                if (!hasMultipleImages) return;
+                if (info.offset.x < -60) {
+                  nextImage();
+                } else if (info.offset.x > 60) {
+                  prevImage();
+                }
+              }}
+            />
+          </AnimatePresence>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+            无图片
+          </div>
+        )}
 
-        {/* Image Navigation */}
+        {/* Image Indicators */}
         {hasMultipleImages && (
-          <>
-            <button
-              onClick={prevImage}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-md p-2 rounded-full shadow-lg hover:bg-white transition z-10"
-            >
-              <ChevronLeft size={24} />
-            </button>
-            <button
-              onClick={nextImage}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-md p-2 rounded-full shadow-lg hover:bg-white transition z-10"
-            >
-              <ChevronRight size={24} />
-            </button>
-
-            {/* Image Indicators */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-              {images.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentImageIndex(index)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    index === currentImageIndex
-                      ? 'bg-white w-6'
-                      : 'bg-white/50'
-                  }`}
-                />
-              ))}
-            </div>
-          </>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10 bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
+            {images.map((_, index) => (
+              <div
+                key={index}
+                className={`transition-all ${
+                  index === currentImageIndex
+                    ? 'w-2 h-2 rounded-full bg-white'
+                    : 'w-1.5 h-1.5 rounded-full bg-white/50'
+                }`}
+              />
+            ))}
+          </div>
         )}
       </div>
 
@@ -227,14 +374,14 @@ export default function ProductDetail() {
       <AnimatePresence>
         {showLinkModal && product.link && (
             <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-                <motion.div 
+                <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     onClick={() => setShowLinkModal(false)}
                     className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                 />
-                <motion.div 
+                <motion.div
                     initial={{ y: '100%' }}
                     animate={{ y: 0 }}
                     exit={{ y: '100%' }}
@@ -247,17 +394,79 @@ export default function ProductDetail() {
                             <X size={20} />
                         </button>
                     </div>
-                    
+
                     <div className="bg-gray-50 p-4 rounded-xl max-h-[40vh] overflow-y-auto break-all text-sm text-gray-700 leading-relaxed border border-gray-100">
                         {product.link}
                     </div>
 
-                    <button 
+                    <button
                         onClick={() => copyToClipboard(product.link!, 'link')}
                         className="w-full flex items-center justify-center gap-2 bg-black text-white py-4 rounded-xl font-bold text-lg shadow-lg active:scale-[0.98] transition-transform"
                     >
                         {isCopiedLink ? <Check size={20} /> : <Copy size={20} />}
                         {isCopiedLink ? '已复制' : '一键复制链接'}
+                    </button>
+                </motion.div>
+            </div>
+        )}
+      </AnimatePresence>
+
+      {/* Image Modal */}
+      <AnimatePresence>
+        {showImageModal && images.length > 0 && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setShowImageModal(false)}
+                    className="absolute inset-0 bg-black"
+                />
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{
+                      scale: 1,
+                      opacity: Math.max(0, 1 - modalDragY / 300),
+                      y: modalDragY
+                    }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                     className="relative w-full h-full flex items-center justify-center p-4"
+                     onTouchStart={handleModalTouchStart}
+                     onTouchMove={handleModalTouchMove}
+                     onTouchEnd={handleModalTouchEnd}
+                >
+                    <motion.img
+                        src={images[safeImageIndex]}
+                        alt={product.brand || 'Product'}
+                        className="max-w-full max-h-full object-contain"
+                        animate={{
+                          scale: zoomScale,
+                          x: zoomX,
+                          y: zoomY,
+                        }}
+                        transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+                        drag={zoomScale > 1 ? true : false}
+                        dragMomentum={false}
+                        onDoubleClick={() => {
+                          if (zoomScale > 1) {
+                            setZoomScale(1);
+                            setZoomX(0);
+                            setZoomY(0);
+                          } else {
+                            setZoomScale(2);
+                          }
+                        }}
+                    />
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowImageModal(false);
+                        }}
+                        className="absolute top-4 right-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white"
+                        style={{ top: 'max(env(safe-area-inset-top), 16px)' }}
+                    >
+                        <X size={24} />
                     </button>
                 </motion.div>
             </div>

@@ -170,7 +170,12 @@ export default function Home() {
   };
 
   return (
-    <>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+    >
       <header 
         className="fixed top-0 left-0 right-0 bg-white shadow-sm z-50 flex items-center justify-between px-4"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 35px)', paddingBottom: '1rem' }}
@@ -213,19 +218,21 @@ export default function Home() {
         </div>
       </header>
 
-      <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
-        exit={{ opacity: 0 }}
-        className="min-h-screen bg-gray-50 pb-24 relative"
+      <div
+        className="bg-gray-50 pb-24 relative"
+        style={{ paddingTop: 'calc(max(env(safe-area-inset-top), 35px) + 60px)', minHeight: '100vh' }}
       >
         <main 
             className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4"
-            style={{ marginTop: 'calc(max(env(safe-area-inset-top), 35px) + 60px)' }}
         >
             {filteredProducts.map(product => (
-            <Link key={product.id} to={`/product/${product.id}`} className="block">
-                <div className="bg-white rounded-lg shadow-sm overflow-hidden aspect-[3/4] relative">
+            <Link key={product.id} to={`/product/${encodeURIComponent(String(product.id))}`} className="block">
+                <motion.div 
+                    className="bg-white rounded-lg shadow-sm overflow-hidden aspect-[3/4] relative"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                >
                 <img 
                     src={product.cover_url} 
                     alt={product.brand || 'Product'} 
@@ -233,9 +240,12 @@ export default function Home() {
                 />
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
                     <p className="text-white text-xs font-semibold">{product.brand}</p>
+                    {product.item_no && (
+                        <p className="text-white/90 text-[10px] font-medium">货号: {product.item_no}</p>
+                    )}
                     <p className="text-white/80 text-[10px]">{product.thickness} • {getMaterialLabel(product.material)}</p>
                 </div>
-                </div>
+                </motion.div>
             </Link>
             ))}
             
@@ -250,7 +260,7 @@ export default function Home() {
         {showMenu && (
             <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
         )}
-      </motion.div>
+      </div>
 
       {/* Hidden File Input */}
       <input 
@@ -277,6 +287,6 @@ export default function Home() {
                 <Plus size={32} strokeWidth={2} />
             </Link>
       </div>
-    </>
+    </motion.div>
   );
 }

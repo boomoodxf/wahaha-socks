@@ -25,7 +25,7 @@ function AnimatedRoutes() {
   }, [navigate, location]);
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Home />} />
         <Route path="/add" element={<AddProduct />} />
