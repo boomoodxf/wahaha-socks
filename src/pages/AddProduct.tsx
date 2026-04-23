@@ -280,7 +280,9 @@ export default function AddProduct() {
 
       if (routeId) {
         updateProduct(productData);
-        navigate(`/product/${encodeURIComponent(String(routeId))}`, { replace: true });
+        // 使用 -1 返回到详情页，因为路由是：首页 → 详情页 → 编辑页
+        // 返回一次就回到详情页，再返回一次就到首页
+        navigate(-1);
       } else {
         addProduct(productData);
         navigate('/', { replace: true });
