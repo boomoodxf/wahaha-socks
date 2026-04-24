@@ -5,6 +5,7 @@ import { MATERIAL_OPTIONS, CROTCH_TYPE_OPTIONS } from '@/types';
 import { useEffect, useRef, useState } from 'react';
 import { useProductStore } from '@/store/useProductStore';
 import { Clipboard } from '@capacitor/clipboard';
+import { pageTransition, pageVariants } from '@/lib/pageTransition';
 
 export default function ProductDetail({ direction }: { direction: 'forward' | 'backward' }) {
   const navigate = useNavigate();
@@ -190,118 +191,128 @@ export default function ProductDetail({ direction }: { direction: 'forward' | 'b
 
   return (
     <motion.div 
-      className="min-h-screen bg-white pb-10"
-      initial={{ x: direction === 'forward' ? '100%' : 0 }}
-      animate={{ x: 0 }}
-      exit={{ x: direction === 'forward' ? 0 : '100%' }}
-      transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] }}
+      className="bg-white"
+      custom={direction}
+      variants={pageVariants}
+      initial="enter"
+      animate="center"
+      exit="exit"
+      transition={pageTransition}
       style={{ 
         position: 'absolute', 
         top: 0, 
         left: 0, 
         right: 0, 
         bottom: 0,
+        height: '100vh',
+        overflow: 'hidden',
         willChange: 'transform'
       }}
     >
       <header 
-        className="absolute top-0 left-0 right-0 p-4 z-10 flex justify-between items-center"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 35px)' }}
+        className="fixed top-0 left-0 right-0 bg-white shadow-sm z-50 flex items-center justify-between px-4"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 35px)', paddingBottom: '1rem' }}
       >
         <button 
           onClick={() => navigate(-1)} 
-          className="bg-white/80 backdrop-blur-md p-2 rounded-full shadow-sm hover:bg-white transition"
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
         >
           <ArrowLeft size={24} />
         </button>
 
-        <div className="flex gap-2">
+        <h1 className="text-lg font-bold text-center truncate px-4">{product.brand}</h1>
+
+        <div className="flex items-center gap-1">
             <button 
               onClick={() => navigate(`/edit/${product.id}`)}
-              className="bg-white/80 backdrop-blur-md p-2 rounded-full shadow-sm hover:bg-white transition"
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
             >
               <Pencil size={20} />
             </button>
             <button 
               onClick={handleDelete}
-              className="bg-white/80 backdrop-blur-md p-2 rounded-full shadow-sm hover:bg-white text-red-500 transition"
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-red-500 transition-colors"
             >
               <Trash2 size={20} />
             </button>
         </div>
       </header>
 
-      {/* Hero Image with Carousel */}
       <div
-        className="w-full h-[60vh] bg-gray-100 relative overflow-hidden cursor-pointer"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        className="absolute inset-0 overflow-y-auto bg-white"
+        style={{ paddingTop: 'calc(max(env(safe-area-inset-top), 35px) + 60px)' }}
       >
-        {images.length > 0 ? (
-          <AnimatePresence initial={false} custom={slideDirection}>
-            <motion.img
-              key={images[safeImageIndex]}
-              src={images[safeImageIndex]}
-              alt={product.brand || 'Product'}
-              custom={slideDirection}
-              className="absolute inset-0 w-full h-full object-cover"
-              variants={{
-                enter: (direction: number) => ({
-                  x: direction > 0 ? '100%' : '-100%'
-                }),
-                center: {
-                  x: 0
-                },
-                exit: (direction: number) => ({
-                  x: direction > 0 ? '-100%' : '100%'
-                })
-              }}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{
-                type: 'spring',
-                stiffness: 320,
-                damping: 34
-              }}
-              drag={hasMultipleImages ? 'x' : false}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.18}
-              onDragEnd={(_, info) => {
-                if (!hasMultipleImages) return;
-                if (info.offset.x < -60) {
-                  nextImage();
-                } else if (info.offset.x > 60) {
-                  prevImage();
-                }
-              }}
-            />
-          </AnimatePresence>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-gray-500">
-            无图片
-          </div>
-        )}
-
-        {/* Image Indicators */}
-        {hasMultipleImages && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10 bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
-            {images.map((_, index) => (
-              <div
-                key={index}
-                className={`transition-all ${
-                  index === currentImageIndex
-                    ? 'w-2 h-2 rounded-full bg-white'
-                    : 'w-1.5 h-1.5 rounded-full bg-white/50'
-                }`}
+        {/* Hero Image with Carousel */}
+        <div
+          className="w-full h-[60vh] bg-gray-100 relative overflow-hidden cursor-pointer"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {images.length > 0 ? (
+            <AnimatePresence initial={false} custom={slideDirection}>
+              <motion.img
+                key={images[safeImageIndex]}
+                src={images[safeImageIndex]}
+                alt={product.brand || 'Product'}
+                custom={slideDirection}
+                className="absolute inset-0 w-full h-full object-cover"
+                variants={{
+                  enter: (direction: number) => ({
+                    x: direction > 0 ? '100%' : '-100%'
+                  }),
+                  center: {
+                    x: 0
+                  },
+                  exit: (direction: number) => ({
+                    x: direction > 0 ? '-100%' : '100%'
+                  })
+                }}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{
+                  type: 'spring',
+                  stiffness: 320,
+                  damping: 34
+                }}
+                drag={hasMultipleImages ? 'x' : false}
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.18}
+                onDragEnd={(_, info) => {
+                  if (!hasMultipleImages) return;
+                  if (info.offset.x < -60) {
+                    nextImage();
+                  } else if (info.offset.x > 60) {
+                    prevImage();
+                  }
+                }}
               />
-            ))}
-          </div>
-        )}
-      </div>
+            </AnimatePresence>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+              无图片
+            </div>
+          )}
 
-      <div className="p-6 -mt-6 bg-white rounded-t-3xl relative z-0 space-y-6 min-h-[40vh]">
+          {/* Image Indicators */}
+          {hasMultipleImages && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10 bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
+              {images.map((_, index) => (
+                <div
+                  key={index}
+                  className={`transition-all ${
+                    index === currentImageIndex
+                      ? 'w-2 h-2 rounded-full bg-white'
+                      : 'w-1.5 h-1.5 rounded-full bg-white/50'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 -mt-6 bg-white rounded-t-3xl relative z-0 space-y-6 min-h-[40vh] pb-10">
         {/* Header Info */}
         <div className="flex justify-between items-start">
             <div>
@@ -376,6 +387,7 @@ export default function ProductDetail({ direction }: { direction: 'forward' | 'b
                 查看完整链接
              </button>
         )}
+        </div>
       </div>
 
       {/* Link Modal */}
@@ -431,13 +443,13 @@ export default function ProductDetail({ direction }: { direction: 'forward' | 'b
                     className="absolute inset-0 bg-black"
                 />
                 <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
+                  initial={{ scale: 1, opacity: 0 }}
                   animate={{
                       scale: 1,
                       opacity: Math.max(0, 1 - modalDragY / 300),
                       y: modalDragY
                     }}
-                    exit={{ scale: 0.8, opacity: 0 }}
+                    exit={{ scale: 1, opacity: 0 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                      className="relative w-full h-full flex items-center justify-center p-4"
                      onTouchStart={handleModalTouchStart}

@@ -11,6 +11,7 @@ import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capa
 import { Capacitor } from '@capacitor/core';
 import { Clipboard } from '@capacitor/clipboard';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
+import { pageTransition, pageVariants } from '@/lib/pageTransition';
 
 // Schema Definition
 const productSchema = z.object({
@@ -42,10 +43,11 @@ export default function AddProduct({ direction }: { direction: 'forward' | 'back
   const routeId = id ? safeDecode(id) : undefined;
   const { addProduct, updateProduct, products } = useProductStore();
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  // 新增：点击图片显示“设为主图”按钮的控制状态
+  const [showMainButtonIndex, setShowMainButtonIndex] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const [longPressIndex, setLongPressIndex] = useState<number | null>(null);
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  // Removed long-press popup state (no longer allow "Set as main image" via long-press)
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const { register, handleSubmit, watch, reset, setValue, getValues, formState: { errors } } = useForm<ProductFormValues>({
@@ -201,30 +203,18 @@ export default function AddProduct({ direction }: { direction: 'forward' | 'back
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  // 将指定图片移动到第一张，成为主图
   const moveImageToFirst = (index: number) => {
-    if (index === 0) return;
+    if (index <= 0) return;
     setImagePreviews(prev => {
-      const newPreviews = [...prev];
-      const [movedImage] = newPreviews.splice(index, 1);
-      newPreviews.unshift(movedImage);
-      return newPreviews;
+      const items = [...prev];
+      const [img] = items.splice(index, 1);
+      items.unshift(img);
+      return items;
     });
-    setLongPressIndex(null);
+    setShowMainButtonIndex(null);
   };
 
-  const handleLongPressStart = (index: number) => {
-    const timer = setTimeout(() => {
-      setLongPressIndex(index);
-    }, 500);
-    setLongPressTimer(timer);
-  };
-
-  const handleLongPressEnd = () => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      setLongPressTimer(null);
-    }
-  };
 
   const handleDragEnd = (result: any) => {
     if (!result.destination) return;
@@ -297,34 +287,43 @@ export default function AddProduct({ direction }: { direction: 'forward' | 'back
   return (
     <motion.div 
       className="min-h-screen bg-gray-50 flex flex-col" 
-      initial={{ x: direction === 'forward' ? '100%' : 0 }}
-      animate={{ x: 0 }}
-      exit={{ x: direction === 'forward' ? 0 : '100%' }}
-      transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] }}
+      custom={direction}
+      variants={pageVariants}
+      initial="enter"
+      animate="center"
+      exit="exit"
+      transition={pageTransition}
       style={{ 
         position: 'absolute', 
         top: 0, 
         left: 0, 
         right: 0, 
         bottom: 0,
-        paddingTop: 'max(env(safe-area-inset-top), 35px)',
+        height: '100vh',
+        overflow: 'hidden',
         willChange: 'transform'
       }}
     >
-      <header className="p-4 bg-white border-b flex items-center gap-4 sticky top-0 z-20 shadow-sm">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
+      <header
+        className="fixed top-0 left-0 right-0 bg-white border-b shadow-sm z-50 flex items-center px-4"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), 35px)', paddingBottom: '1rem' }}
+      >
+          <button onClick={() => navigate(-1)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
             <ArrowLeft />
           </button>
-          <h1 className="text-lg font-bold">{routeId ? '编辑商品' : '添加新商品'}</h1>
+          <h1 className="flex-1 text-lg font-bold text-center pr-8">{routeId ? '编辑商品' : '添加新商品'}</h1>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 pb-32">
+        <main
+          className="flex-1 overflow-y-auto p-4 pb-32"
+          style={{ paddingTop: 'calc(max(env(safe-area-inset-top), 35px) + 76px)' }}
+        >
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-lg mx-auto">
 
           {/* Image Upload Section */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
-              包装封面 {imagePreviews.length > 0 && <span className="text-xs text-gray-500">(第一张为主图，长按或拖动调整顺序)</span>}
+              包装封面 {imagePreviews.length > 0 && <span className="text-xs text-gray-500">(第一张为主图，拖动调整顺序)</span>}
             </label>
 
             {/* Image Grid */}
@@ -343,23 +342,32 @@ export default function AddProduct({ direction }: { direction: 'forward' | 'back
                   dragListener={false}
                   as="div"
                 >
-                  <motion.div
+              <motion.div
                     className="w-full h-full"
-                    onTouchStart={() => handleLongPressStart(index)}
-                    onTouchEnd={handleLongPressEnd}
-                    onMouseDown={() => handleLongPressStart(index)}
-                    onMouseUp={handleLongPressEnd}
-                    onMouseLeave={handleLongPressEnd}
                     drag
                     dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
                     dragElastic={0.1}
-                    whileTap={{ scale: 0.95 }}
+                    whileTap={{ scale: 1 }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowMainButtonIndex((prev) => (prev === index ? null : index));
+                    }}
                   >
                     <img src={image} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
-                    
                     {index === 0 && (
                       <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">
                         主图
+                      </div>
+                    )}
+                    {showMainButtonIndex === index && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-white/90 p-2 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); moveImageToFirst(index); }}
+                          className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                        >
+                          设为主图
+                        </button>
                       </div>
                     )}
                     
@@ -374,7 +382,7 @@ export default function AddProduct({ direction }: { direction: 'forward' | 'back
                 </Reorder.Item>
               ))}
 
-              {/* Add Button */}
+            {/* Add Button */}
               <div className="relative aspect-[3/4] bg-gray-200 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex flex-col items-center justify-center group">
                 <div className="text-center space-y-4">
                   <div className="flex justify-center gap-4">
@@ -400,56 +408,6 @@ export default function AddProduct({ direction }: { direction: 'forward' | 'back
               </div>
             </Reorder.Group>
           </div>
-
-          {/* Long Press Menu */}
-          <AnimatePresence>
-            {longPressIndex !== null && longPressIndex > 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 flex items-center justify-center"
-                onClick={() => setLongPressIndex(null)}
-              >
-                <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-                <motion.div
-                  initial={{ scale: 0.9, y: 20 }}
-                  animate={{ scale: 1, y: 0 }}
-                  exit={{ scale: 0.9, y: 20 }}
-                  className="relative bg-white rounded-2xl p-6 m-4 max-w-sm w-full shadow-2xl"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <h3 className="text-lg font-bold mb-4 text-center">图片操作</h3>
-                  <div className="space-y-3">
-                    <button
-                      type="button"
-                      onClick={() => moveImageToFirst(longPressIndex)}
-                      className="w-full bg-blue-500 text-white py-3 rounded-xl font-medium hover:bg-blue-600 transition"
-                    >
-                      设为主图
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        removeImage(longPressIndex);
-                        setLongPressIndex(null);
-                      }}
-                      className="w-full bg-red-500 text-white py-3 rounded-xl font-medium hover:bg-red-600 transition"
-                    >
-                      删除图片
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLongPressIndex(null)}
-                      className="w-full bg-gray-200 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-300 transition"
-                    >
-                      取消
-                    </button>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
 
           {/* Brand */}
@@ -612,6 +570,9 @@ export default function AddProduct({ direction }: { direction: 'forward' | 'back
         className="hidden"
         onChange={handleImageInputChange}
       />
+
+      {/* Long Press Menu */}
+      
     </motion.div>
   );
 }

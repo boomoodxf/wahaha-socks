@@ -9,6 +9,7 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
+import { pageTransition, pageVariants } from '@/lib/pageTransition';
 
 export default function Home({ direction }: { direction: 'forward' | 'backward' }) {
   const products = useProductStore((state) => state.products);
@@ -171,16 +172,20 @@ export default function Home({ direction }: { direction: 'forward' | 'backward' 
 
   return (
     <motion.div
-      initial={{ x: direction === 'forward' ? 0 : '100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: direction === 'forward' ? 0 : '100%' }}
-      transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] }}
+      custom={direction}
+      variants={pageVariants}
+      initial="enter"
+      animate="center"
+      exit="exit"
+      transition={pageTransition}
       style={{ 
         position: 'absolute', 
         top: 0, 
         left: 0, 
         right: 0, 
         bottom: 0,
+        height: '100vh',
+        overflow: 'hidden',
         willChange: 'transform'
       }}
     >
@@ -201,9 +206,9 @@ export default function Home({ direction }: { direction: 'forward' | 'backward' 
              <AnimatePresence>
                 {showMenu && (
                     <motion.div 
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        initial={{ opacity: 0, y: 10, scale: 1 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        exit={{ opacity: 0, y: 10, scale: 1 }}
                         className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden min-w-[140px] z-50 origin-top-right"
                     >
                         <button 
@@ -227,8 +232,8 @@ export default function Home({ direction }: { direction: 'forward' | 'backward' 
       </header>
 
       <div
-        className="bg-gray-50 pb-24 relative"
-        style={{ paddingTop: 'calc(max(env(safe-area-inset-top), 35px) + 60px)', minHeight: '100vh' }}
+        className="bg-gray-50 pb-24 absolute inset-0 overflow-y-auto"
+        style={{ paddingTop: 'calc(max(env(safe-area-inset-top), 35px) + 60px)', paddingBottom: '120px' }}
       >
         <main 
             className="p-4 grid grid-cols-2 md:grid-cols-4 gap-4"
@@ -237,8 +242,8 @@ export default function Home({ direction }: { direction: 'forward' | 'backward' 
             <Link key={product.id} to={`/product/${encodeURIComponent(String(product.id))}`} className="block">
                 <motion.div 
                     className="bg-white rounded-lg shadow-sm overflow-hidden aspect-[3/4] relative"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: 1 }}
+                    whileTap={{ scale: 1 }}
                     transition={{ type: 'tween', duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                 >
                 <img 
