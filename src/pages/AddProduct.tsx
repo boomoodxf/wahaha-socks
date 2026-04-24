@@ -318,10 +318,10 @@ export default function AddProduct({ direction }: { direction: 'forward' | 'back
           className="flex-1 overflow-y-auto p-4 pb-32"
           style={{ paddingTop: 'calc(max(env(safe-area-inset-top), 35px) + 76px)' }}
         >
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-lg mx-auto">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
           {/* Image Upload Section */}
-          <div className="space-y-2">
+          <div className="space-y-2 max-w-2xl mx-auto">
             <label className="block text-sm font-medium text-gray-700">
               包装封面 {imagePreviews.length > 0 && <span className="text-xs text-gray-500">(第一张为主图，拖动调整顺序)</span>}
             </label>
@@ -383,7 +383,7 @@ export default function AddProduct({ direction }: { direction: 'forward' | 'back
               ))}
 
             {/* Add Button */}
-              <div className="relative aspect-[3/4] bg-gray-200 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex flex-col items-center justify-center group">
+              <div className="relative col-span-2 min-h-[144px] bg-gray-200 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex flex-col items-center justify-center group">
                 <div className="text-center space-y-4">
                   <div className="flex justify-center gap-4">
                      <button
@@ -409,6 +409,7 @@ export default function AddProduct({ direction }: { direction: 'forward' | 'back
             </Reorder.Group>
           </div>
 
+          <div className="max-w-lg mx-auto space-y-6">
 
           {/* Brand */}
           <div className="space-y-1">
@@ -557,6 +558,8 @@ export default function AddProduct({ direction }: { direction: 'forward' | 'back
             >
               {isSubmitting ? '保存中...' : '保存商品'}
             </button>
+          </div>
+
           </div>
 
         </form>
