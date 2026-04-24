@@ -28,7 +28,7 @@ const productSchema = z.object({
 
 type ProductFormValues = z.infer<typeof productSchema>;
 
-export default function AddProduct({ direction }: { direction: number }) {
+export default function AddProduct({ direction }: { direction: 'forward' | 'backward' }) {
   const navigate = useNavigate();
   const { id } = useParams();
   const safeDecode = (value: string) => {
@@ -295,29 +295,23 @@ export default function AddProduct({ direction }: { direction: number }) {
   };
 
   return (
-    <>
-      <motion.div
-        custom={direction}
-        initial={{ 
-          x: direction > 0 ? '100%' : '-20%',
-          opacity: direction > 0 ? 1 : 1
-        }}
-        animate={{ 
-          x: 0,
-          opacity: 1
-        }}
-        exit={{ 
-          x: direction > 0 ? '-20%' : '100%',
-          opacity: direction > 0 ? 1 : 0
-        }}
-        transition={{ 
-          duration: 0.3,
-          ease: [0.4, 0, 0.2, 1]
-        }}
-        className="min-h-screen bg-gray-50 flex flex-col"
-        style={{ position: 'absolute', width: '100%', minHeight: '100vh', paddingTop: 'max(env(safe-area-inset-top), 35px)' }}
-      >
-        <header className="p-4 bg-white border-b flex items-center gap-4 sticky top-0 z-20 shadow-sm">
+    <motion.div 
+      className="min-h-screen bg-gray-50 flex flex-col" 
+      initial={{ x: direction === 'forward' ? '100%' : 0 }}
+      animate={{ x: 0 }}
+      exit={{ x: direction === 'forward' ? 0 : '100%' }}
+      transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] }}
+      style={{ 
+        position: 'absolute', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0,
+        paddingTop: 'max(env(safe-area-inset-top), 35px)',
+        willChange: 'transform'
+      }}
+    >
+      <header className="p-4 bg-white border-b flex items-center gap-4 sticky top-0 z-20 shadow-sm">
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
             <ArrowLeft />
           </button>
@@ -596,19 +590,20 @@ export default function AddProduct({ direction }: { direction: number }) {
             />
           </div>
 
+          {/* Fixed Bottom Action Bar */}
+          <div className="shrink-0 p-4">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-black text-white py-4 rounded-xl font-bold text-lg shadow-lg active:scale-[0.98] transition-transform disabled:opacity-50"
+            >
+              {isSubmitting ? '保存中...' : '保存商品'}
+            </button>
+          </div>
+
         </form>
       </main>
-        {/* Fixed Bottom Action Bar */}
-        <div className="shrink-0 p-4 bg-white border-t z-20 pb-[calc(env(safe-area-inset-bottom)+20px)]">
-          <button
-            onClick={handleSubmit(onSubmit)}
-            disabled={isSubmitting}
-            className="w-full bg-black text-white py-4 rounded-xl font-bold text-lg shadow-lg active:scale-[0.98] transition-transform disabled:opacity-50"
-          >
-            {isSubmitting ? '保存中...' : '保存商品'}
-          </button>
-        </div>
-      </motion.div>
+      
       <input
         ref={imageInputRef}
         type="file"
@@ -617,6 +612,6 @@ export default function AddProduct({ direction }: { direction: number }) {
         className="hidden"
         onChange={handleImageInputChange}
       />
-    </>
+    </motion.div>
   );
 }

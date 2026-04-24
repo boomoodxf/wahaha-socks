@@ -10,7 +10,7 @@ import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
 
-export default function Home({ direction }: { direction: number }) {
+export default function Home({ direction }: { direction: 'forward' | 'backward' }) {
   const products = useProductStore((state) => state.products);
   const setProducts = useProductStore((state) => state.setProducts);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
@@ -171,24 +171,18 @@ export default function Home({ direction }: { direction: number }) {
 
   return (
     <motion.div
-      custom={direction}
-      initial={{ 
-        x: direction > 0 ? '-20%' : 0,
-        opacity: direction > 0 ? 1 : 1
+      initial={{ x: direction === 'forward' ? 0 : '100%' }}
+      animate={{ x: 0 }}
+      exit={{ x: direction === 'forward' ? 0 : '100%' }}
+      transition={{ duration: 0.3, ease: [0, 0, 0.2, 1] }}
+      style={{ 
+        position: 'absolute', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0,
+        willChange: 'transform'
       }}
-      animate={{ 
-        x: 0,
-        opacity: 1
-      }}
-      exit={{ 
-        x: direction > 0 ? '-20%' : '100%',
-        opacity: direction > 0 ? 1 : 0
-      }}
-      transition={{ 
-        duration: 0.3,
-        ease: [0.4, 0, 0.2, 1]
-      }}
-      style={{ position: 'absolute', width: '100%', height: '100%' }}
     >
       <header 
         className="fixed top-0 left-0 right-0 bg-white shadow-sm z-50 flex items-center justify-between px-4"
