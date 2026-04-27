@@ -73,9 +73,13 @@ jobs:
           git config user.email github-actions@github.com
           git add package.json android/app/build.gradle package-lock.json
           git commit -m "chore: release v${{ steps.bump.outputs.version }}" || true
-          git tag "v${{ steps.bump.outputs.version }}"
-          git push
-          git push origin "v${{ steps.bump.outputs.version }}"
+          if git rev-parse "v${{ steps.bump.outputs.version }}" >/dev/null 2>&1; then
+            echo "Tag already exists locally"
+          else
+            git tag "v${{ steps.bump.outputs.version }}"
+          fi
+          git push || true
+          git push origin "v${{ steps.bump.outputs.version }}" || true
 
       - name: Publish release
         uses: softprops/action-gh-release@v2
