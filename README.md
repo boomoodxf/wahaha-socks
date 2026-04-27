@@ -80,3 +80,19 @@ VITE_SUPABASE_ANON_KEY=your_anon_key
 ## 开源协议
 
 本项目基于 `MIT` 协议开源，详见 `LICENSE` 文件。
+
+## Documentation & Contributing
+
+### Documentation
+- Quick Start: npm install, npm run dev, npm run build, npm run android
+- Architecture: frontend stack and data flow overview
+- How to run on Android: Capacitior workflow, adb, etc. (already covered above)
+
+### Contributing
+- See CONTRIBUTING.md for contribution guidelines
+- Commit messages should be concise and follow conventional messages
+- Run lint before PR: npm run lint
+- Run tests (if configured): npm test
+
+### Code of Conduct
+- See CODE_OF_CONDUCT.md for participation guidelines
