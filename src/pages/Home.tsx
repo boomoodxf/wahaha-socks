@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Plus, Download, Upload, MoreHorizontal } from 'lucide-react';
+import { Plus, Download, Upload, MoreHorizontal, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FilterDrawer } from '@/features/home/FilterDrawer';
 import { FilterState, MATERIAL_OPTIONS } from '@/types';
@@ -10,6 +10,7 @@ import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import { FilePicker } from '@capawesome/capacitor-file-picker';
 import { pageTransition, pageVariants } from '@/lib/pageTransition';
+import { checkForAppUpdate, installLatestApk } from '@/lib/appUpdate';
 
 export default function Home({ direction }: { direction: 'forward' | 'backward' }) {
   const products = useProductStore((state) => state.products);
@@ -20,6 +21,7 @@ export default function Home({ direction }: { direction: 'forward' | 'backward' 
     crotch_type: []
   });
   const [showMenu, setShowMenu] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleApplyFilters = (filters: FilterState) => {
@@ -170,6 +172,39 @@ export default function Home({ direction }: { direction: 'forward' | 'backward' 
     setShowMenu(false);
   };
 
+  const handleUpdate = async () => {
+    if (isCheckingUpdate) return;
+
+    setIsCheckingUpdate(true);
+    try {
+      const updateInfo = await checkForAppUpdate();
+
+      if (!updateInfo.hasUpdate) {
+        alert(`当前已是最新版本 (${updateInfo.currentVersion})`);
+        setShowMenu(false);
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `发现新版本 ${updateInfo.latestVersion}，当前版本 ${updateInfo.currentVersion}。\n\n是否立即下载并安装？`
+      );
+
+      if (!confirmed) {
+        setShowMenu(false);
+        return;
+      }
+
+      await installLatestApk(updateInfo.assetUrl, updateInfo.assetName);
+      alert('已开始下载更新，请按系统提示继续安装');
+    } catch (error) {
+      console.error('Update failed:', error);
+      alert(`检查更新失败: ${error}`);
+    } finally {
+      setIsCheckingUpdate(false);
+      setShowMenu(false);
+    }
+  };
+
   return (
     <motion.div
       custom={direction}
@@ -224,6 +259,13 @@ export default function Home({ direction }: { direction: 'forward' | 'backward' 
                         >
                             <Download size={18} />
                             导入数据
+                        </button>
+                        <button 
+                            onClick={handleUpdate}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-sm font-medium text-left"
+                        >
+                            <RefreshCw size={18} className={isCheckingUpdate ? 'animate-spin' : ''} />
+                            {isCheckingUpdate ? '检查中...' : '更新应用'}
                         </button>
                     </motion.div>
                 )}

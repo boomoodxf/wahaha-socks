@@ -1,7 +1,7 @@
 {
   "name": "w",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "check": "tsc -b --noEmit",
     "android": "npm run build && npx cap sync android",
+    "bump:version": "node scripts/bump-version.mjs",
     "generate-icons": "capacitor-assets generate --android",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"

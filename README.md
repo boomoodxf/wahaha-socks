@@ -77,22 +77,43 @@ VITE_SUPABASE_ANON_KEY=your_anon_key
 - 支持 Android Studio 同步与打包
 - 表单录入和图片管理流程简洁直接
 
+## 自动更新
+
+- 首页右上角菜单中提供 `更新应用` 按钮
+- 应用会从 GitHub 最新 Release 检查新版本
+- 如果存在更新，会下载命名为 `wahaha-release-x.y.z.apk` 的安装包并触发系统安装
+
+注意事项：
+- Android 覆盖安装要求新旧版本使用同一签名证书
+- 若未使用同一 keystore 签名，系统可能无法直接覆盖升级
+
+## 自动发布
+
+项目已包含 GitHub Actions 自动发布流程：
+
+- 工作流文件：`.github/workflows/release.yml`
+- 触发方式：
+  - 推送到 `main`
+  - 手动触发 `workflow_dispatch`
+- 发布内容：
+  - 自动递增版本号
+  - 自动构建 Android Release APK
+  - 自动上传 GitHub Release
+  - 产物文件名格式：`wahaha-release-x.y.z.apk`
+
+### 版本规则
+- 当前仓库版本起点已调整为 `1.0.0`
+- 自动发布时会先递增版本号，因此首个自动发布版本将从 `1.0.1` 开始
+
+### GitHub Secrets
+
+如需稳定生成可覆盖安装的正式 APK，请在 GitHub 仓库配置以下 Secrets：
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
 ## 开源协议
 
 本项目基于 `MIT` 协议开源，详见 `LICENSE` 文件。
-
-## Documentation & Contributing
-
-### Documentation
-- Quick Start: npm install, npm run dev, npm run build, npm run android
-- Architecture: frontend stack and data flow overview
-- How to run on Android: Capacitior workflow, adb, etc. (already covered above)
-
-### Contributing
-- See CONTRIBUTING.md for contribution guidelines
-- Commit messages should be concise and follow conventional messages
-- Run lint before PR: npm run lint
-- Run tests (if configured): npm test
-
-### Code of Conduct
-- See CODE_OF_CONDUCT.md for participation guidelines
